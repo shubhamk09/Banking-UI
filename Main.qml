@@ -1,4 +1,5 @@
 import QtQuick
+import QtQuick.Controls
 
 Window {
     width: 900
@@ -6,6 +7,8 @@ Window {
     visible: true
     title: qsTr("Hello World")
     color: "#A47764"
+
+    // Color Combination Mocha Mousse, Creamy White, and Deep Taupe
 
     Rectangle {
         id: imageHolderId
@@ -18,8 +21,16 @@ Window {
             id: logoImageId
             anchors.fill: parent
             source: "qrc:/Src/Resource/Images/EveryBank_full_logo.png"
-
         }
-
     }
+
+    ProgressBar {
+        id: progressBar
+        value: 0.6
+        width: 200
+        height: 20
+        anchors.top: imageHolderId.bottom
+        anchors.horizontalCenter: parent.horizontalCenter
+    }
+
 }

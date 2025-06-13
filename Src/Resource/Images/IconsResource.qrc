@@ -1,0 +1,5 @@
+<RCC>
+    <qresource prefix="/">
+        <file>EveryBank_full_logo.png</file>
+    </qresource>
+</RCC>

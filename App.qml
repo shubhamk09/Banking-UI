@@ -5,10 +5,10 @@ Item {
     StackView {
         id: navigator
         anchors.fill: parent
-        initialItem: "qrc:/Src/Common/Components/SplashScreen.qml"
+        initialItem: "qrc:/common/SplashScreen.qml"
     }
 
     Component.onCompleted: {
-        console.log("StackView Load complete")
+        console.log("App Load complete")
     }
 }

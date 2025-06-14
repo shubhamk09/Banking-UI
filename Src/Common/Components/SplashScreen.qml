@@ -12,7 +12,7 @@ Item {
         Image {
             id: logoImageId
             anchors.fill: parent
-            source: "qrc:/Src/Resource/Images/EveryBank_full_logo.png"
+            source: "qrc:/img/bankLogo"
         }
     }
 

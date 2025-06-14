@@ -29,8 +29,9 @@ Banking-UI/
 │    │       ├── TransactionsController.cpp/h
 │    │       └── TransactionsModule.pri
 │    │
-│    ├── common/
+│    ├── Common/
 │    │   ├── Components/             # Shared QML components
+│    │   │   ├── SplashScreen.qml
 │    │   │   ├── Header.qml
 │    │   │   ├── Sidebar.qml
 │    │   │   ├── ContentArea.qml

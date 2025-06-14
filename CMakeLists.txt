@@ -18,11 +18,19 @@ qt_add_qml_module(appBanking-UI
     QML_FILES
         Main.qml
         RESOURCES Src/Resource/Images/IconsResource.qrc
+        QML_FILES App.qml
+        QML_FILES Src/Common/Components/SplashScreen.qml
+        RESOURCES Src/Common/Components/CommonResource.qrc
 )
 
 qt_add_resources(appBanking-UI "icons"
     PREFIX "/"
     FILES Src/Resource/Images/EveryBank_full_logo.png
+)
+
+qt_add_resources(appBanking-UI "common"
+    PREFIX "/"
+    FILES Src/Common/Components/SplashScreen.qml
 )
 
 # Qt for iOS sets MACOSX_BUNDLE_GUI_IDENTIFIER automatically since Qt 6.1.

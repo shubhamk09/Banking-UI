@@ -31,13 +31,18 @@ Banking-UI/
 │    │
 │    ├── common/
 │    │   ├── Components/             # Shared QML components
-│    │   │    ├── Header.qml
-│    │   │    └── Sidebar.qml
+│    │   │   ├── Header.qml
+│    │   │   ├── Sidebar.qml
+│    │   │   ├── ContentArea.qml
+│    │   │   ├── Footer.qml
+│    │   │   └── Breadcrumb.qml
+│    │   │    
 │    │   ├── Utils/                  # Shared JS or helpers
-│    │   │     ├── Theme.qml
-│    │   │     └── Validator.js
+│    │   │   ├── Theme.qml
+│    │   │   └── Validator.js
+│    │   │
 │    │   └── Models/                 # Shared models
-│    │         └── AccountListModel.cpp/h
+│    │       └── AccountListModel.cpp/h
 │    │
 │    └── Resources/
 │        ├── Images/

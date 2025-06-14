@@ -1,4 +1,5 @@
 import QtQuick
+import QtQuick.Controls
 
 Window {
     width: 900
@@ -7,19 +8,10 @@ Window {
     title: qsTr("Hello World")
     color: "#A47764"
 
-    Rectangle {
-        id: imageHolderId
-        height: 250
-        width: 250
-        //color: "red"
-        anchors.centerIn: parent
-        color: "transparent"
-        Image {
-            id: logoImageId
-            anchors.fill: parent
-            source: "qrc:/Src/Resource/Images/EveryBank_full_logo.png"
+    // Color Combination Mocha Mousse, Creamy White, and Deep Taupe
 
-        }
-
+    App {
+        anchors.fill: parent
     }
+
 }

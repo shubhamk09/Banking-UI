@@ -1,5 +1,5 @@
 <RCC>
-    <qresource prefix="/">
-        <file>EveryBank_full_logo.png</file>
+    <qresource prefix="/img">
+        <file alias="bankLogo">EveryBank_full_logo.png</file>
     </qresource>
 </RCC>

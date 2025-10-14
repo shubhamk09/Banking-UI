@@ -6,7 +6,12 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 set(CMAKE_AUTORCC ON)
 
-find_package(Qt6 REQUIRED COMPONENTS Quick)
+if(APPLE)
+    # Use modern OpenGL instead of deprecated AGL
+    set(CMAKE_OSX_DEPLOYMENT_TARGET "10.15" CACHE STRING "Minimum OS X deployment version")
+endif()
+
+find_package(Qt6 REQUIRED COMPONENTS Quick OpenGL)
 
 qt_standard_project_setup(REQUIRES 6.8)
 
@@ -38,7 +43,7 @@ set_target_properties(appBanking-UI PROPERTIES
 )
 
 target_link_libraries(appBanking-UI
-    PRIVATE Qt6::Quick
+    PRIVATE Qt6::Quick Qt6::OpenGL
 )
 
 include(GNUInstallDirs)

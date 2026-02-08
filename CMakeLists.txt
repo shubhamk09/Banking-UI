@@ -11,12 +11,13 @@ if(APPLE)
     set(CMAKE_OSX_DEPLOYMENT_TARGET "10.15" CACHE STRING "Minimum OS X deployment version")
 endif()
 
-find_package(Qt6 REQUIRED COMPONENTS Quick OpenGL)
+find_package(Qt6 REQUIRED COMPONENTS Quick OpenGL Network)
 
 qt_standard_project_setup(REQUIRES 6.8)
 
 qt_add_executable(appBanking-UI
     main.cpp
+    Src/Common/StartupManager.cpp
 )
 
 qt_add_qml_module(appBanking-UI
@@ -29,7 +30,10 @@ qt_add_qml_module(appBanking-UI
     RESOURCES 
         Src/Resource/Images/IconsResource.qrc
         Src/Common/Components/CommonResource.qrc
+        Src/Resource/Json/JsonResource.qrc
 )
+
+# add_subdirectory(Src)
 
 # Qt for iOS sets MACOSX_BUNDLE_GUI_IDENTIFIER automatically since Qt 6.1.
 # If you are developing for iOS or macOS you should consider setting an

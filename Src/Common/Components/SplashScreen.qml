@@ -19,10 +19,11 @@ Item {
     ProgressBar {
         id: progressBar
         value: 0.6
-        width: 200
-        height: 20
-        anchors.top: imageHolderId.bottom
-        anchors.horizontalCenter: parent.horizontalCenter
+        anchors {
+            top: imageHolderId.bottom
+            topMargin: 10
+            horizontalCenter: parent.horizontalCenter
+        }
 
         NumberAnimation {
             target: progressBar

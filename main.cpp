@@ -14,6 +14,6 @@ int main(int argc, char *argv[])
         []() { QCoreApplication::exit(-1); },
         Qt::QueuedConnection);
     engine.loadFromModule("Banking-UI", "Main");
-    QScopedPointer<banking::StartupManager> startupManager(new banking::StartupManager()); 
+    QScopedPointer<Banking::StartupManager> startupManager(new Banking::StartupManager()); 
     return app.exec();
 }

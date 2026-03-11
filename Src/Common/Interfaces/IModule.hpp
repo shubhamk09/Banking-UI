@@ -6,9 +6,12 @@
  * startup, and shutdown. All modules should implement this interface.
  */
 
+ #pragma once
+
  // Includes
  #include <string>
 
+namespace Banking {
 class IModule
 {
 public:
@@ -21,7 +24,7 @@ public:
      * @brief Returns module name.
      * @return Name of the module.
      */
-    virtual const std::string& getModuleName() const = 0;
+    virtual const char* getModuleName() const = 0;
     /**
      * @brief Initialize the module.
      *
@@ -45,3 +48,4 @@ public:
      */
     virtual void stop() = 0;
 };
+} //namespace Banking

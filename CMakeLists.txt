@@ -18,6 +18,7 @@ qt_standard_project_setup(REQUIRES 6.8)
 qt_add_executable(appBanking-UI
     main.cpp
     Src/Common/StartupManager.cpp
+    Src/Common/ModuleFactory.cpp
 )
 
 qt_add_qml_module(appBanking-UI
@@ -33,7 +34,7 @@ qt_add_qml_module(appBanking-UI
         Src/Resource/Json/JsonResource.qrc
 )
 
-# add_subdirectory(Src)
+add_subdirectory(Src)
 
 # Qt for iOS sets MACOSX_BUNDLE_GUI_IDENTIFIER automatically since Qt 6.1.
 # If you are developing for iOS or macOS you should consider setting an
@@ -48,6 +49,7 @@ set_target_properties(appBanking-UI PROPERTIES
 
 target_link_libraries(appBanking-UI
     PRIVATE Qt6::Quick Qt6::OpenGL
+    communications_lib
 )
 
 include(GNUInstallDirs)

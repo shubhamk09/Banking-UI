@@ -8,41 +8,76 @@
 #include <QJsonArray>
 
 #include "inc/StartupManager.hpp"
+#include "inc/ModuleNames.hpp"
+#include "inc/ModuleFactory.hpp"
+#include "../Modules/Communications/inc/CommunicationInitializer.hpp"
 
-namespace banking{
+namespace Banking{
+    constexpr int initModule = 1;
+    constexpr int doNotInitModule = 0;
 
-StartupManager::StartupManager(){
+StartupManager::StartupManager() : m_moduleFactory(ModuleFactory::instance()),
+    m_moduleNameMap{
+        {"Communications", ModuleNames::Communications}
+        // Add more mappings as needed
+    }
+{
     std::cout<<"Starting the Project"<<std::endl;
+    registerModule();
     loadConfig();
+    initCore();
+    initModules();
 }
 
-StartupManager::~StartupManager(){
+StartupManager::~StartupManager()
+{
     std::cout<<"Shuting down the Project"<<std::endl;
+    for (IModule* module : m_modules) {
+        delete module;
+    }
+    m_modules.clear();
 }
 
 void StartupManager::loadConfig()
 {
 
     std::cout<< "Loading Config files" <<std::endl;
-    QFile file(":/json/modules_list"); // Your resource path
+
+    QFile file(":/json/modules_list"); // Reading from resource path
     if (file.open(QIODevice::ReadOnly)) {
         QByteArray data = file.readAll();
         file.close();
 
         QJsonDocument doc = QJsonDocument::fromJson(data);
         if (!doc.isNull() && doc.isObject()) {
-            QJsonObject obj = doc.object();
-            for (auto it = obj.constBegin(); it != obj.constEnd(); ++it)
+            QJsonObject jsonObj = doc.object();
+
+            QJsonArray moduleList = jsonObj["modules"].toArray();
+            std::cout<<"Module list size: "<<moduleList.size()<<std::endl;
+            for (const QJsonValue &moduleValue : moduleList)
             {
-                if (it.key() == "modules")
+                if(!moduleValue.isObject())
                 {
-                    QJsonArray modulesList = it.value().toArray();
-                    std::cout<<modulesList.size()<<std::endl;
-                    // Need to write logic to call for initialization of the modules. 
+                    std::cout<< "Inavalid data in Module lists" <<std::endl;
+                    return;
                 }
-                
-            }
-            
+
+                QJsonObject moduleObject = moduleValue.toObject();
+                for (auto it = moduleObject.begin(); it != moduleObject.end(); ++it) {
+                    QString moduleName = it.key();
+                    int moduleValue = it.value().toInt();
+                    std::cout<<"Module: "<< moduleName.toStdString() << " is " << moduleValue << std::endl;
+                    if (moduleValue == initModule)
+                    {
+                        QString initializerName = getInitializerName(moduleName);
+                        QScopedPointer<IModule> module = m_moduleFactory.createInstance(initializerName);
+                        // How should I replace .take its depreciated??
+                        // QT suggests to use std::unique_ptr and release() function.
+                        // Need to analyse that.
+                        m_modules.push_back(module.take());
+                    }
+                }
+            }          
         }
     }
     else
@@ -53,11 +88,26 @@ void StartupManager::loadConfig()
 }
 void StartupManager::initCore()
 {
+    // Dont know what do do here.
+    // May be initializing other things are meesage queues, loggers and all
 }
 void StartupManager::initModules()
 {
+    for (auto &module : m_modules)
+    {
+        module->init();
+    }
+    
 }
-void StartupManager::registerModules(const std::string &moduleName)
+void StartupManager::registerModule()
 {
+    m_moduleFactory.registerModule(ModuleNames::Communications,
+                        []() { return QScopedPointer<IModule>(new Communications::CommunicationInitializer); });
 }
-} // namespace banking
+QString StartupManager::getInitializerName(const QString& jsonName) const {
+    auto it = m_moduleNameMap.find(jsonName);
+    if (it != m_moduleNameMap.end())
+        return it->second;
+    return jsonName;
+}
+} // namespace Banking

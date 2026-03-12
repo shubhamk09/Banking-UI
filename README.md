@@ -24,10 +24,12 @@ Banking-UI/
 │    │   │   ├── DashboardController.cpp/h
 │    │   │   └── DashboardModule.pri
 │    │   │
-│    │   └── TransactionsModule/
-│    │       ├── TransactionsPage.qml
-│    │       ├── TransactionsController.cpp/h
-│    │       └── TransactionsModule.pri
+│    │   ├── TransactionsModule/
+│    │   │   ├── TransactionsPage.qml
+│    │   │   ├── TransactionsController.cpp/h
+│    │   │   └── TransactionsModule.pri
+│    │   │ 
+│    │   └── Communications/
 │    │
 │    ├── Common/
 │    │   ├── Components/             # Shared QML components
@@ -37,6 +39,8 @@ Banking-UI/
 │    │   │   ├── ContentArea.qml
 │    │   │   ├── Footer.qml
 │    │   │   └── Breadcrumb.qml
+|    |   |── Controls/
+│    │   │   └── ProgressIndicator/
 │    │   │    
 │    │   ├── Utils/                  # Shared JS or helpers
 │    │   │   ├── Theme.qml

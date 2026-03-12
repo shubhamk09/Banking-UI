@@ -34,7 +34,7 @@ public:
      * @param port Port number.
      * @return True if connected successfully, false otherwise.
      */
-    bool connectToServer(const QString &host, quint16 port);
+    bool connectToServer(const std::string &host, quint16 port);
 
     /**
      * @brief Disconnect from the server.

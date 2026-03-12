@@ -16,7 +16,7 @@ void ModuleFactory::registerModule(const QString &name, CreatorFunction creator)
     m_creatorsList[name] = std::move(creator);
     std::cout<<"m_creatorsList size " << m_creatorsList.size()<<std::endl;
 }
-QScopedPointer<IModule> ModuleFactory::createInstance(const QString &name) const
+std::unique_ptr<IModule> ModuleFactory::createInstance(const QString &name) const
 {
     std::cout<<"Creating the instance for: "<<name.toStdString()<<std::endl;
     auto module = m_creatorsList.find(name);
@@ -24,7 +24,7 @@ QScopedPointer<IModule> ModuleFactory::createInstance(const QString &name) const
     
     if(module == m_creatorsList.end())
     {
-        return QScopedPointer<IModule>(nullptr);
+        return std::unique_ptr<IModule>(nullptr);
     }
     std::cout<<"Found the module"<<std::endl;
     return module.value()();

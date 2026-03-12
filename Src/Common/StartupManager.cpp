@@ -20,7 +20,9 @@ StartupManager::StartupManager() : m_moduleFactory(ModuleFactory::instance()),
     m_moduleNameMap{
         {"Communications", ModuleNames::Communications}
         // Add more mappings as needed
-    }
+    },
+    m_totalModules{0},
+    m_totalLoadedModules{0}
 {
     std::cout<<"Starting the Project"<<std::endl;
     registerModule();
@@ -32,8 +34,9 @@ StartupManager::StartupManager() : m_moduleFactory(ModuleFactory::instance()),
 StartupManager::~StartupManager()
 {
     std::cout<<"Shuting down the Project"<<std::endl;
-    for (IModule* module : m_modules) {
-        delete module;
+    for (auto &module : m_modules)
+    {
+        module->stop();
     }
     m_modules.clear();
 }
@@ -70,11 +73,12 @@ void StartupManager::loadConfig()
                     if (moduleValue == initModule)
                     {
                         QString initializerName = getInitializerName(moduleName);
-                        QScopedPointer<IModule> module = m_moduleFactory.createInstance(initializerName);
-                        // How should I replace .take its depreciated??
+                        std::unique_ptr<IModule> module = m_moduleFactory.createInstance(initializerName);
+                        // How should I replace .take() its depreciated??
                         // QT suggests to use std::unique_ptr and release() function.
                         // Need to analyse that.
-                        m_modules.push_back(module.take());
+                        m_modules.emplace_back(std::move(module));
+                        m_totalModules++;
                     }
                 }
             }          
@@ -95,14 +99,22 @@ void StartupManager::initModules()
 {
     for (auto &module : m_modules)
     {
-        module->init();
+        if(module->init())
+        {
+            if(module->start())
+            {
+                std::cout<<module->getModuleName()<<" Started"<<std::endl;
+                m_totalLoadedModules++;
+            }
+        }
+        
     }
     
 }
 void StartupManager::registerModule()
 {
     m_moduleFactory.registerModule(ModuleNames::Communications,
-                        []() { return QScopedPointer<IModule>(new Communications::CommunicationInitializer); });
+                        []() { return std::unique_ptr<IModule>(new Communications::CommunicationInitializer); });
 }
 QString StartupManager::getInitializerName(const QString& jsonName) const {
     auto it = m_moduleNameMap.find(jsonName);

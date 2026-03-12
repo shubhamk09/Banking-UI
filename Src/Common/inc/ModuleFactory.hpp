@@ -15,11 +15,11 @@ public:
     ModuleFactory(/* args */) = default;
     ~ModuleFactory() = default;
 
-    using CreatorFunction = std::function<QScopedPointer<IModule>()>;
+    using CreatorFunction = std::function<std::unique_ptr<IModule>()>;
 
     static ModuleFactory& instance();
     void registerModule(const QString& name, CreatorFunction creator);
-    QScopedPointer<IModule> createInstance(const QString& name) const;
+    std::unique_ptr<IModule> createInstance(const QString& name) const;
 
     private:
     QHash<QString, CreatorFunction> m_creatorsList;

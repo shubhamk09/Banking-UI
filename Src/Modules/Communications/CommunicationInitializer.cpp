@@ -8,6 +8,9 @@ namespace Banking {
 
 namespace Communications {
 
+constexpr const char* SERVERADDRESS {"127.0.0.1"};
+constexpr const int SERVERPORT      {5020};
+
 const char* CommunicationInitializer::getModuleName() const
 {
     return ModuleNames::Communications;
@@ -15,17 +18,27 @@ const char* CommunicationInitializer::getModuleName() const
 
 bool CommunicationInitializer::init()
 {
+    bool returnStatus{false};
     std::cout<<"Initializing Communication module"<<std::endl;
-    return false;
+    m_socket = new BankingSocket();
+    if(m_socket!=nullptr)
+        returnStatus = true;
+    return returnStatus;
 }
 
 bool CommunicationInitializer::start()
 {
-    return false;
+    bool returnStatus{false};
+    if(m_socket->connectToServer(SERVERADDRESS, SERVERPORT))
+        returnStatus = true;
+    return returnStatus;
 }
 
 void CommunicationInitializer::stop()
 {
+    std::cout<<"Stoping Communication module"<<std::endl;
+    m_socket->disconnectFromServer();
+    delete m_socket;
 }
 
 } // namespace Communications

@@ -1,4 +1,5 @@
 #include "../../../Common/Interfaces/IModule.hpp"
+#include "BankingSocket.hpp"
 
 namespace Banking {
 
@@ -18,6 +19,7 @@ public:
 
 private:
     std::string m_name;
+    BankingSocket* m_socket;
 };
 
 } // namespace Communications

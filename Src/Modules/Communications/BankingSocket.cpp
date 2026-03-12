@@ -20,7 +20,7 @@ BankingSocket::~BankingSocket()
     disconnectFromServer();
 }
 
-bool BankingSocket::connectToServer(const QString &host, quint16 port)
+bool BankingSocket::connectToServer(const std::string &host, quint16 port)
 {
     // Close any existing connection
     if (state() == QAbstractSocket::ConnectedState) {
@@ -28,7 +28,7 @@ bool BankingSocket::connectToServer(const QString &host, quint16 port)
     }
 
     // Connect to the server
-    QHostAddress address(host);
+    QHostAddress address(QString::fromStdString(host));
     connectToHost(address, port);
 
     // Wait for connection
@@ -39,7 +39,9 @@ void BankingSocket::disconnectFromServer()
 {
     if (state() != QAbstractSocket::UnconnectedState) {
         disconnectFromHost();
-        waitForDisconnected(TIMEOUT_MS);
+        if (state() != QAbstractSocket::UnconnectedState) {
+            waitForDisconnected(TIMEOUT_MS);
+        }
     }
 }
 

@@ -1,6 +1,3 @@
-/**
- * 
- */
 #include <iostream>
 #include <QFile>
 #include <QJsonDocument>
@@ -81,14 +78,14 @@ void StartupManager::loadConfig()
                         m_totalModules++;
                     }
                 }
-            }          
+            }
         }
     }
     else
     {
         std::cout<<"qrc path failed"<<std::endl;
     }
-    
+
 }
 void StartupManager::initCore()
 {
@@ -107,9 +104,9 @@ void StartupManager::initModules()
                 m_totalLoadedModules++;
             }
         }
-        
+
     }
-    
+
 }
 void StartupManager::registerModule()
 {

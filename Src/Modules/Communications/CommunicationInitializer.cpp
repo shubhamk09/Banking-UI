@@ -4,6 +4,7 @@
 
 #include "CommunicationInitializer.hpp"
 #include "../../Common/inc/ModuleNames.hpp"
+
 namespace Banking {
 
 namespace Communications {

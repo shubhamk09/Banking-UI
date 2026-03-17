@@ -1,8 +1,19 @@
-// ModuleNames.h
+/**
+ * @file ModuleNames.hpp
+ * @brief Defines constant names for all application modules.
+ */
+
 #pragma once
 
-namespace Banking{
+namespace Banking {
+
+/**
+ * @namespace ModuleNames
+ * @brief Contains constant strings for module identification.
+ */
 namespace ModuleNames {
-    constexpr const char* Communications    = "CommunicationInitializer";
+    /** @brief Name identifier for the Communications module. */
+    constexpr const char* Communications = "CommunicationInitializer";
 } // namespace ModuleNames
+
 } // namespace Banking

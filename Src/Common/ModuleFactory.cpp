@@ -21,7 +21,7 @@ std::unique_ptr<IModule> ModuleFactory::createInstance(const QString &name) cons
     std::cout<<"Creating the instance for: "<<name.toStdString()<<std::endl;
     auto module = m_creatorsList.find(name);
     // Not going here... why????
-    
+
     if(module == m_creatorsList.end())
     {
         return std::unique_ptr<IModule>(nullptr);

@@ -1462,35 +1462,363 @@ void StartupManager::initModules() {
 }
 ```
 
-#### 3. Add Handlers to BankingSocket Module
+#### 3. Extend BankingSocket Signal Handlers
+
+**Overview**: BankingSocket keeps its existing internal signal-slot connections to QTcpSocket. We EXTEND these handlers to publish messages to the MessageQueue so other modules get notified.
 
 ```cpp
-class CommunicationInitializer : public IModule {
-public:
-    bool start() override {
-        // ... existing code ...
+// BankingSocket.hpp - Keep existing signals
+class BankingSocket : public QTcpSocket {
+    Q_OBJECT
 
-        // Register message handlers
-        registerMessageHandlers();
-
-        return true;
-    }
-
-private:
-    void registerMessageHandlers() {
-        auto &dispatcher = Banking::MessageDispatcher::instance();
-        // Subscribe to auth messages (using MessageType enum)
-        dispatcher.registerHandler(Banking::MessageType::AUTH, this,
-            SLOT(onAuthMessage(QSharedPointer<IMessage>)));
-        // Subscribe to transaction messages
-        dispatcher.registerHandler(Banking::MessageType::TRANSACTION, this,
-            SLOT(onTransactionMessage(QSharedPointer<IMessage>)));
-    }
-
-    // Message handlers
-    void onAuthMessage(QSharedPointer<IMessage> msg);
-    void onTransactionMessage(QSharedPointer<IMessage> msg);
+private slots:
+    void handleConnected();      // Existing - now EXTENDED
+    void handleDisconnected();   // Existing - now EXTENDED
+    void handleError();          // Existing - now EXTENDED
+    void handleReadyRead();      // Existing - now EXTENDED
 };
+
+// BankingSocket.cpp - Extend existing handlers
+
+// Constructor (existing code unchanged)
+BankingSocket::BankingSocket() {
+    // Connect internal socket signals to our slots (KEEP EXISTING)
+    connect(this, &QTcpSocket::connected, this, &BankingSocket::handleConnected);
+    connect(this, &QTcpSocket::disconnected, this, &BankingSocket::handleDisconnected);
+    connect(this, &QTcpSocket::errorOccurred, this, &BankingSocket::handleError);
+    connect(this, &QTcpSocket::readyRead, this, &BankingSocket::handleReadyRead);
+}
+
+// EXTENDED: handleConnected() - now publishes StatusMessage
+void BankingSocket::handleConnected() {
+    qDebug() << "Connected to banking server";
+
+    // Step 1: Existing internal logic (if any)
+    // ...
+
+    // Step 2: NEW - Notify all modules via MessageQueue
+    auto statusMsg = std::make_shared<Banking::StatusMessage>(
+        "BankingSocket",
+        Banking::StatusMessage::ConnectionStatus::CONNECTED
+    );
+    Banking::MessageQueue::instance().enqueueMessage(statusMsg);
+}
+
+// EXTENDED: handleDisconnected() - now publishes StatusMessage
+void BankingSocket::handleDisconnected() {
+    qDebug() << "Disconnected from banking server";
+
+    // NEW - Notify all modules
+    auto statusMsg = std::make_shared<Banking::StatusMessage>(
+        "BankingSocket",
+        Banking::StatusMessage::ConnectionStatus::DISCONNECTED
+    );
+    Banking::MessageQueue::instance().enqueueMessage(statusMsg);
+}
+
+// EXTENDED: handleError() - now publishes ErrorMessage
+void BankingSocket::handleError() {
+    QString errorDescription = this->errorString();
+    int errorCode = this->error();
+
+    qWarning() << "Socket error [" << errorCode << "]:" << errorDescription;
+
+    // NEW - Broadcast error to ALL modules (CRITICAL priority)
+    auto errorMsg = std::make_shared<Banking::ErrorMessage>(
+        "BankingSocket",
+        errorDescription,
+        errorCode
+    );
+    Banking::MessageQueue::instance().enqueueMessage(errorMsg);
+}
+
+// EXTENDED: handleReadyRead() - now creates response messages
+void BankingSocket::handleReadyRead() {
+    QByteArray data = readAll();
+    qDebug() << "Received data:" << data;
+
+    // Step 1: Parse incoming data (existing logic)
+    // This determines the message type (AUTH response, TXN response, etc.)
+
+    // Step 2: NEW - Create appropriate Message object
+    // Example: If server sent AUTH_SUCCESS response
+    if (data.contains("AUTH_SUCCESS")) {
+        auto authResponse = std::make_shared<Banking::AuthMessage>(
+            "BankingSocket",          // source
+            "authenticated_user",     // username (from server response)
+            "",                       // password (empty in response)
+            false                     // this is a response, not a request
+        );
+        authResponse->setAuthenticated(true);
+        authResponse->setMessageId(m_lastAuthRequestId);  // Match with request
+
+        // Step 3: Enqueue response → LoginModule waiting for this gets unblocked
+        Banking::MessageQueue::instance().enqueueMessage(authResponse);
+    }
+
+    // Example: If server sent TRANSACTION_CONFIRMED
+    else if (data.contains("TXN_CONFIRMED")) {
+        auto txnResponse = std::make_shared<Banking::TransactionMessage>(
+            "BankingSocket",
+            "recipient_account",
+            1000.00,
+            false  // response
+        );
+        txnResponse->setSuccessful(true);
+        txnResponse->setMessageId(m_lastTxnRequestId);
+
+        Banking::MessageQueue::instance().enqueueMessage(txnResponse);
+    }
+}
+```
+
+**Register MessageHandlers** (in BankingSocket::start() or CommunicationInitializer):
+
+```cpp
+bool BankingSocket::start() {
+    // ... existing code ...
+
+    // NEW: Register as handler for incoming messages
+    auto &dispatcher = Banking::MessageDispatcher::instance();
+
+    // Subscribe to AUTH requests
+    dispatcher.registerHandler(Banking::MessageType::AUTH, this,
+        SLOT(onAuthMessageReceived(QSharedPointer<IMessage>)));
+
+    // Subscribe to TRANSACTION requests
+    dispatcher.registerHandler(Banking::MessageType::TRANSACTION, this,
+        SLOT(onTransactionReceived(QSharedPointer<IMessage>)));
+
+    return true;
+}
+
+// Handle incoming AUTH request from LoginModule
+void BankingSocket::onAuthMessageReceived(QSharedPointer<Banking::IMessage> msg) {
+    auto authRequest = qobject_cast<Banking::AuthMessage*>(msg.get());
+    if (!authRequest) return;
+
+    // Store request ID to match response later
+    m_lastAuthRequestId = authRequest->getMessageId();
+
+    // Send to server
+    QString credentials = QString("%1:%2")
+        .arg(authRequest->getUsername(), authRequest->getPassword());
+
+    this->write(credentials.toUtf8());
+}
+
+// Handle incoming TRANSACTION request from other modules
+void BankingSocket::onTransactionReceived(QSharedPointer<Banking::IMessage> msg) {
+    auto txnRequest = qobject_cast<Banking::TransactionMessage*>(msg.get());
+    if (!txnRequest) return;
+
+    // Store request ID to match response later
+    m_lastTxnRequestId = txnRequest->getMessageId();
+
+    // Send to server
+    QString txnData = QString("TXN|%1|%2")
+        .arg(txnRequest->getToAccount(), QString::number(txnRequest->getAmount()));
+
+    this->write(txnData.toUtf8());
+}
+```
+
+#### 4. Other Modules Listen to Status/Error Updates
+
+**Example: LoginModule listens to connection status and errors**
+
+```cpp
+// LoginModule.hpp
+class LoginModule : public IModule {
+    Q_OBJECT
+
+private slots:
+    void onConnectionStatusChanged(QSharedPointer<Banking::IMessage> msg);
+    void onErrorOccurred(QSharedPointer<Banking::IMessage> msg);
+};
+
+// LoginModule.cpp
+bool LoginModule::start() {
+    auto &dispatcher = Banking::MessageDispatcher::instance();
+
+    // Listen to connection status updates from BankingSocket
+    dispatcher.registerHandler(Banking::MessageType::STATUS, this,
+        SLOT(onConnectionStatusChanged(QSharedPointer<IMessage>)));
+
+    // Listen to error notifications
+    dispatcher.registerHandler(Banking::MessageType::ERROR, this,
+        SLOT(onErrorOccurred(QSharedPointer<IMessage>)));
+
+    return IModule::start();
+}
+
+void LoginModule::onConnectionStatusChanged(QSharedPointer<Banking::IMessage> msg) {
+    auto statusMsg = qobject_cast<Banking::StatusMessage*>(msg.get());
+    if (!statusMsg) return;
+
+    switch (statusMsg->getStatus()) {
+        case Banking::StatusMessage::ConnectionStatus::CONNECTED:
+            qDebug() << "Server connected! UI can now accept login";
+            enableLoginUI();
+            break;
+
+        case Banking::StatusMessage::ConnectionStatus::DISCONNECTED:
+            qDebug() << "Server disconnected! Disable login UI";
+            disableLoginUI();
+            showOfflineMessage();
+            break;
+
+        case Banking::StatusMessage::ConnectionStatus::RECONNECTING:
+            qDebug() << "Server reconnecting...";
+            showReconnectingIndicator();
+            break;
+
+        case Banking::StatusMessage::ConnectionStatus::CONNECTING:
+            qDebug() << "Connecting to server...";
+            showConnectingIndicator();
+            break;
+    }
+}
+
+void LoginModule::onErrorOccurred(QSharedPointer<Banking::IMessage> msg) {
+    auto errorMsg = qobject_cast<Banking::ErrorMessage*>(msg.get());
+    if (!errorMsg) return;
+
+    qWarning() << "Error from" << msg->getSourceModule()
+               << ":" << errorMsg->getErrorDescription();
+
+    // Handle error (show dialog, disable UI, etc.)
+    showErrorDialog(errorMsg->getErrorDescription());
+}
+
+// Request-Reply Pattern: Send auth and wait for response
+void LoginModule::attemptLogin(const QString &username, const QString &password) {
+    // Step 1: Create AUTH request message
+    auto authRequest = std::make_shared<Banking::AuthMessage>(
+        "LoginModule",
+        username,
+        password,
+        true  // This is a REQUEST
+    );
+
+    // Step 2: Send request and WAIT for response (blocking)
+    QSharedPointer<Banking::IMessage> response;
+    bool received = Banking::MessageQueue::instance()
+        .sendRequestAndWait(authRequest, response, 5000);  // 5 second timeout
+
+    // Step 3: Handle response
+    if (!received) {
+        showErrorDialog("Login timeout - server not responding");
+        return;
+    }
+
+    auto authResponse = qobject_cast<Banking::AuthMessage*>(response.get());
+    if (!authResponse) {
+        showErrorDialog("Unexpected response from server");
+        return;
+    }
+
+    if (authResponse->isAuthenticated()) {
+        handleLoginSuccess();
+    } else {
+        handleLoginFailure("Invalid username or password");
+    }
+}
+```
+
+### Complete End-to-End Communication Flow
+
+```
+┌─────────────────────────────────────────────────────────────────────────┐
+│ SCENARIO: User performs login                                           │
+└─────────────────────────────────────────────────────────────────────────┘
+
+PHASE 1: CONNECTION ESTABLISHMENT (Fire-and-Forget)
+════════════════════════════════════════════════════
+
+QTcpSocket                BankingSocket           MessageQueue            LoginModule
+    │                           │                       │                      │
+    │ connectToServer()         │                       │                      │
+    │◄─ (existing code)         │                       │                      │
+    │                           │                       │                      │
+    │ connected signal          │                       │                      │
+    ├──────────────────────────►│ handleConnected()    │                      │
+    │                           ├─ Create StatusMsg   │                      │
+    │                           ├─ enqueueMessage()   │                      │
+    │                           ├──────────────────────►│                      │
+    │                           │                  Dispatcher routes         │
+    │                           │                       ├─ onConnectionStatusChanged()
+    │                           │                       ├──────────────────────►│
+    │                           │                       │               [Notify UI: Server Connected]
+    │                           │                       │
+
+
+PHASE 2: LOGIN REQUEST (Request-Reply, Blocking)
+═════════════════════════════════════════════════
+
+LoginModule             MessageQueue         MessageDispatcher      BankingSocket       QTcpSocket
+    │                       │                       │                    │                  │
+    │ User clicks Login     │                       │                    │                  │
+    ├─ attemptLogin()      │                       │                    │                  │
+    ├─ Create AUTH msg     │                       │                    │                  │
+    ├─ sendRequestAndWait()│                       │                    │                  │
+    ├──────────────────────►│                       │                    │                  │
+    │ [BLOCKED - waiting]   │ enqueue(AUTH_REQ)    │                    │                  │
+    │                       ├───────────────────────►│ dispatch          │                  │
+    │                       │                       ├─ onAuthReceived() │                  │
+    │                       │                       ├───────────────────►│                  │
+    │                       │                       │           ├─ Extract credentials
+    │                       │                       │           ├─ format request
+    │                       │                       │           ├─────────────────────────►│
+    │                       │                       │           │         write(credentials)
+    │                       │                       │           │
+    │                       │                       │           │(waits for server response)
+    │
+    │ Server responds with AUTH_SUCCESS
+    │
+    QTcpSocket fires readyRead signal
+    │                       │                       │                    │                  │
+    │                       │                       │                    │ readyRead signal │
+    │                       │                       │                    │◄─────────────────┤
+    │                       │                       │                    │
+    │                       │                       │         handleReadyRead()
+    │                       │                       │           ├─ Parse server response
+    │                       │                       │           ├─ Create AUTH response msg
+    │                       │                       │           ├─ Set: authenticated=true
+    │                       │                       │           ├─ Set: messageId=[original request id]
+    │                       │                       │           ├─ enqueueMessage()
+    │                       │                       │                    │
+    │                       │                       │  Match by messageId
+    │                       │◄──────────────────────────────────────────┤
+    │ [UNBLOCKED!]          │  Stored in QWaitCondition
+    │ Response received     │  signal()
+    │◄──────────────────────┤
+    │ Parse response         │
+    ├─ isAuthenticated==true
+    ├─ handleLoginSuccess() │
+    │ [User logged in!]      │
+
+
+PHASE 3: ERROR SCENARIO (Fire-and-Forget)
+═════════════════════════════════════════
+
+Network fails (socket disconnect/error)
+
+QTcpSocket             BankingSocket          MessageQueue           All Modules
+    │                      │                       │                      │
+    │ disconnectFromHost() │                       │                      │
+    │◄─────────────────────┤                       │                      │
+    │ errorOccurred signal │                       │                      │
+    ├─────────────────────►│ handleError()         │                      │
+    │                      ├─ Create ErrorMsg     │                      │
+    │                      │   (CRITICAL priority)│                      │
+    │                      ├─ enqueueMessage()   │                      │
+    │                      ├──────────────────────►│                      │
+    │                      │              BROADCAST ERROR
+    │                      │              (all listening modules receive)
+    │                      │                       ├─────────────────────►│
+    │                      │                       │            onErrorOccurred()
+    │                      │                       │            [Handle error: show dialog]
 ```
 
 ### File Structure

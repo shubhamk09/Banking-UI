@@ -1,5 +1,8 @@
 cmake_minimum_required(VERSION 3.16)
 
+# Find required Qt packages
+find_package(Qt6 REQUIRED COMPONENTS Network)
+
 # Create library for Communications module
 add_library(communications_lib
     inc/BankingSocket.hpp
@@ -7,9 +10,6 @@ add_library(communications_lib
     BankingSocket.cpp
     CommunicationInitializer.cpp
 )
-
-# Find required Qt packages
-find_package(Qt6 REQUIRED COMPONENTS Network)
 
 # Set include directories
 target_include_directories(communications_lib

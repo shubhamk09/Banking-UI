@@ -4,7 +4,10 @@ project(Banking-UI VERSION 0.1 LANGUAGES CXX)
 
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
+# Enable Qt Meta-Object Compiler globally
+set(CMAKE_AUTOMOC ON)
 set(CMAKE_AUTORCC ON)
+set(CMAKE_AUTOUIC ON)
 
 if(APPLE)
     # Use modern OpenGL instead of deprecated AGL
@@ -17,8 +20,6 @@ qt_standard_project_setup(REQUIRES 6.8)
 
 qt_add_executable(appBanking-UI
     main.cpp
-    Src/Common/StartupManager.cpp
-    Src/Common/ModuleFactory.cpp
 )
 
 qt_add_qml_module(appBanking-UI
@@ -28,7 +29,7 @@ qt_add_qml_module(appBanking-UI
         Main.qml
         App.qml
         Src/Common/Components/SplashScreen.qml
-    RESOURCES 
+    RESOURCES
         Src/Resource/Images/IconsResource.qrc
         Src/Common/Components/CommonResource.qrc
         Src/Resource/Json/JsonResource.qrc
@@ -49,7 +50,7 @@ set_target_properties(appBanking-UI PROPERTIES
 
 target_link_libraries(appBanking-UI
     PRIVATE Qt6::Quick Qt6::OpenGL
-    communications_lib
+    PRIVATE bankingcore_lib messagequeue_lib communications_lib
 )
 
 include(GNUInstallDirs)

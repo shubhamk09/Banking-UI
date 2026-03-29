@@ -76,11 +76,11 @@ Src/Common/
 │   │   ├── TransactionMessage.hpp    # Transaction messages
 │   │   ├── ErrorMessage.hpp          # Error messages
 │   │   └── StatusMessage.hpp         # Status messages
-│   └── Src/
-│       ├── AuthMessage.cpp
-│       ├── TransactionMessage.cpp
-│       ├── ErrorMessage.cpp
-│       └── StatusMessage.cpp
+│   │ 
+│   ├── AuthMessage.cpp
+│   ├── TransactionMessage.cpp
+│   ├── ErrorMessage.cpp
+│   └── StatusMessage.cpp
 │
 ├── inc/
 │   ├── MessageQueue.hpp              # Singleton queue

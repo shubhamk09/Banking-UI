@@ -14,11 +14,13 @@
  #pragma once
 
  // Includes
-#include<QString>
+#include <QString>
+#include <QByteArray>
+#include <QSharedPointer>
+#include <cstdint>
 
 
 namespace Banking {
-namespace Common {
 
 /**
  * @brief Message type enumeration for type-safe routing
@@ -38,14 +40,14 @@ enum class MessageType : quint8 {
 
 class IMessage {
 public:
-    enum class Priority : quint8 {
+    enum class Priority : uint8_t {
         LOW = 0,       ///< Normal operations (status, info)
         NORMAL = 50,   ///< Regular requests/responses
         HIGH = 75,     ///< Important operations (auth)
         CRITICAL = 100 ///< Errors, system failures
     };
 
-    enum class Status : quint8 {
+    enum class Status : uint8_t {
         PENDING,       ///< Waiting to be processed
         PROCESSING,    ///< Currently being handled
         COMPLETED,     ///< Successfully completed
@@ -191,5 +193,4 @@ public:
     }
 };
 
-} // namespace Common
 } // namespace Banking

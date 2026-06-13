@@ -8,6 +8,7 @@
 #include "inc/ModuleNames.hpp"
 #include "inc/ModuleFactory.hpp"
 #include "../Modules/Communications/inc/CommunicationInitializer.hpp"
+#include "inc/MessageQueue.hpp"
 
 namespace Banking{
     constexpr int initModule = 1;
@@ -89,8 +90,11 @@ void StartupManager::loadConfig()
 }
 void StartupManager::initCore()
 {
-    // Dont know what do do here.
-    // May be initializing other things are meesage queues, loggers and all
+    // MessageQueue singleton initializes automatically on first use
+    // No explicit initialization needed
+    MessageQueue &messageQueue = MessageQueue::instance();
+     
+
 }
 void StartupManager::initModules()
 {

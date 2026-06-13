@@ -20,29 +20,29 @@ MessageQueue &MessageQueue::instance()
 
 void MessageQueue::enqueueMessage(QSharedPointer<IMessage> message)
 {
-    IMessage::Priority messagePriority = message->getPriority();
+    QMutexLocker locker(&m_mutex);
 
+    auto insertPosition = std::upper_bound(
+        m_priorityQueue.begin(),
+        m_priorityQueue.end(),
+        message,
+        [](const QSharedPointer<IMessage> &newMessage,
+           const QSharedPointer<IMessage> &listMessageItem)
+        {
+            return newMessage->getPriority() > listMessageItem->getPriority();
+        }
+    );
+
+    if (insertPosition == m_priorityQueue.end())
     {
-        QMutexLocker locker(&m_mutex);
-        QVector<QSharedPointer<IMessage>>::iterator insertPosition;
-        for ( insertPosition = m_priorityQueue.begin(); insertPosition != m_priorityQueue.end(); ++insertPosition) {
-            IMessage::Priority currentItrPriority = (*insertPosition)->getPriority();
-            if (currentItrPriority < messagePriority)
-            {
-                break;
-            }
-            
-        } 
-        if (insertPosition == m_priorityQueue.end())
-        {
-            m_priorityQueue.append(message);
-        }
-        else
-        {
-            m_priorityQueue.insert(insertPosition, message);
-        }
-        emit messageEnqueued(message);
+        m_priorityQueue.append(message);
     }
+    else
+    {
+        m_priorityQueue.insert(insertPosition, message);
+    }
+
+    emit messageEnqueued(message);
 }
 
 bool MessageQueue::dequeueMessage(QSharedPointer<IMessage> &message, int maxWaitMs)
@@ -92,6 +92,12 @@ void MessageQueue::setMaxQueueSize(int size)
 {  
     //Need to see if we need to use mutex here
     m_maxQueueSize = size;
+}
+
+void MessageQueue::processQueuedMessages()
+{
+    QMutexLocker locker(&m_mutex);
+    Q_UNUSED(locker);
 }
 
 } // namespace Banking

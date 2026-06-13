@@ -33,8 +33,8 @@ add_library(messagequeue_lib STATIC
     Messages/Src/StatusMessage.cpp
     Messages/Src/TransactionMessage.cpp
 
-    # MessageQueue implementation (will be created next)
-    # src/MessageQueue.cpp
+    # MessageQueue implementation
+    MessageQueue.cpp
     # src/MessageDispatcher.cpp
 )
 

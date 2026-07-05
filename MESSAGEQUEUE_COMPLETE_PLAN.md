@@ -199,12 +199,12 @@ AuthMessage* auth = static_cast<AuthMessage*>(msg.get());  // DANGEROUS!
 └────────────────┘  │
                     │
 ┌────────────────┐  │    ┌──────────────────────┐
-│ Transaction    │──┼───►│  MessageQueue        │────┐
-│ Module         │  │    │  (Core System)       │    │
-└────────────────┘  │    │  ├─ Priority Queue  │    │
-                    │    │  ├─ Thread Safety   │    │
-┌────────────────┐  │    │  └─ Audit Logging  │    │
-│ BankingSocket  │──┤    └──────────────────────┘    │
+│ Transaction    │──┼───►│  MessageQueue        │───┐
+│ Module         │  │    │  (Core System)       │   │
+└────────────────┘  │    │  ├─ Priority Queue   │   │
+                    │    │  ├─ Thread Safety    │   │
+┌────────────────┐  │    │  └─ Audit Logging    │   │
+│ BankingSocket  │──┤    └──────────────────────┘   │
 │ Module         │  │                               │
 └────────────────┘  └───────────────────────────────┘
                     [Unified Communication]
@@ -265,29 +265,29 @@ AuthMessage* auth = static_cast<AuthMessage*>(msg.get());  // DANGEROUS!
 │                    Banking-UI Application                      │
 ├────────────────────────────────────────────────────────────────┤
 │                                                                │
-│  ┌──────────────────┐     ┌──────────────────────────────┐    │
-│  │  Login Module    │     │  MessageQueue (Core)         │    │
-│  ├──────────────────┤     ├──────────────────────────────┤    │
-│  │ Sends: AUTH_REQ  ├────►│ - Priority Queue            │    │
-│  │ Gets: AUTH_RESP  │◄────│ - Thread-safe (Mutex)       │    │
-│  └──────────────────┘     │ - Audit Logger              │    │
-│                           │ - Message Router            │    │
-│  ┌──────────────────┐     │ - Request-Reply Matching    │    │
-│  │ Transaction Mod  │────►├──────────────────────────────┤    │
-│  ├──────────────────┤     │ IMessage Interface          │    │
-│  │ Sends: TXN_REQ   │◄────│ ├─ AuthMessage             │    │
-│  │ Gets: TXN_RESP   │     │ ├─ TransactionMessage      │    │
-│  └──────────────────┘     │ ├─ ErrorMessage            │    │
-│                           │ └─ StatusMessage           │    │
-│  ┌──────────────────┐     └──────────────────────────────┘    │
-│  │ BankingSocket    │                                         │
-│  │ (Communications) │         ┌──────────────────────┐        │
-│  ├──────────────────┤         │  Audit Logger        │        │
-│  │ Sends: STATUS    ├────────►├──────────────────────┤        │
-│  │ Receives: all    │         │ - File Logging       │        │
-│  └──────────────────┘         │ - Timestamps         │        │
-│                               │ - Compliance         │        │
-│  [Future Modules...]          └──────────────────────┘        │
+│  ┌──────────────────┐     ┌──────────────────────────────┐     │
+│  │  Login Module    │     │  MessageQueue (Core)         │     │
+│  ├──────────────────┤     ├──────────────────────────────┤     │
+│  │ Sends: AUTH_REQ  ├────►│ - Priority Queue             │     │
+│  │ Gets: AUTH_RESP  │◄────│ - Thread-safe (Mutex)        │     │
+│  └──────────────────┘     │ - Audit Logger               │     │
+│                           │ - Message Router             │     │
+│  ┌──────────────────┐     │ - Request-Reply Matching     │     │
+│  │ Transaction Mod  │────►├──────────────────────────────┤     │
+│  ├──────────────────┤     │ IMessage Interface           │     │
+│  │ Sends: TXN_REQ   │◄────│ ├─ AuthMessage               │     │
+│  │ Gets: TXN_RESP   │     │ ├─ TransactionMessage        │     │
+│  └──────────────────┘     │ ├─ ErrorMessage              │     │
+│                           │ └─ StatusMessage             │     │
+│  ┌──────────────────┐     └──────────────────────────────┘     │
+│  │ BankingSocket    │                                          │
+│  │ (Communications) │         ┌──────────────────────┐         │
+│  ├──────────────────┤         │  Audit Logger        │         │
+│  │ Sends: STATUS    ├────────►├──────────────────────┤         │
+│  │ Receives: all    │         │ - File Logging       │         │
+│  └──────────────────┘         │ - Timestamps         │         │
+│                               │ - Compliance         │         │
+│  [Future Modules...]          └──────────────────────┘         │
 │                                                                │
 └────────────────────────────────────────────────────────────────┘
 ```
@@ -1199,9 +1199,140 @@ Message Arrival Order:           Queue Processing Order:
 
 **Behavior**:
 - Messages with same priority processed FIFO
-- Higher priority messages bypass the queue
-- Prevents error starvation
+- Higher priority messages processed first (CRITICAL > HIGH > NORMAL > LOW)
+- Prevents CRITICAL message starvation
 - Ensures critical operations complete quickly
+- **Request-Reply responses respect priority** - responses are enqueued and processed by the same priority queue before unblocking the waiter
+
+### Request-Reply Pattern: Architectural Design
+
+#### Design Principle: All Messages Through Priority Queue
+
+**Key Decision**: Request-Reply responses are NOT delivered directly to waiters. Instead, ALL messages (including responses) go through the same priority queue, ensuring strict priority ordering.
+
+**Why This Design**:
+- ✅ CRITICAL errors arriving after normal requests are still processed before responses
+- ✅ Strict priority guarantee maintained at all times
+- ✅ No special-case bypass for response delivery
+- ✅ Consistent with fire-and-forget behavior
+- ✅ Requesters only unblock after the response has been dequeued in priority order
+
+**Example Scenario**:
+```
+Timeline of Events:
+─────────────────────────────────────
+T=0ms:  Request message (priority: NORMAL=50) enqueued
+T=5ms:  CRITICAL error message enqueued
+T=10ms: Response message (priority: NORMAL=50) enqueued
+
+Processing Order (by dispatcher):
+─────────────────────────────────────
+1st: CRITICAL error (priority: 100)  ← Processed first!
+2nd: Request message (priority: 50)
+3rd: Response message (priority: 50)
+
+Result: CRITICAL message processed before ALL other messages,
+        even though it arrived after them.
+```
+
+#### How Dispatcher Handles Responses
+
+1. **Dispatcher monitors MessageQueue** for all incoming messages
+2. **For each message**:
+   - If `isRequest() == true` → Route to appropriate handler
+   - If `isRequest() == false` → Check if response matches a pending request
+3. **For responses**:
+   - Look up message ID in pending requests map
+   - If found: Store response in pending responses map
+   - Signal the QWaitCondition for the waiting thread
+   - Waiting thread wakes only after the response has been dequeued and processed
+
+#### How Requesting Modules Use sendRequestAndWait
+
+**Pattern:**
+```cpp
+// Step 1: Requesting module creates request message
+auto request = std::make_shared<Banking::SomeMessage>(
+    "RequesterModule",
+    param1, param2,
+    true  // isRequest = true
+);
+
+// Step 2: Send request and wait (blocks current thread)
+QSharedPointer<Banking::IMessage> response;
+bool received = Banking::MessageQueue::instance()
+    .sendRequestAndWait(request, response, 5000);  // 5 sec timeout
+
+// Step 3: After unblocking, handle response
+if (received) {
+    auto specificResponse = qobject_cast<Banking::SomeMessage*>(response.get());
+    // Process response
+} else {
+    // Timeout - server didn't respond in time
+}
+```
+
+**Sequence of Events**:
+
+1. **Request Module** calls `sendRequestAndWait(request, response, timeout)`
+2. **MessageQueue** stores:
+   - Message ID in pending requests map
+   - QWaitCondition for this message ID
+3. **MessageQueue** enqueues the request (goes to priority queue)
+4. **Request Module's thread BLOCKS** on the QWaitCondition
+5. **MessageDispatcher** processes queue:
+   - Gets request from queue (respecting priority)
+   - Routes to handler module
+6. **Handler Module** processes request:
+   - Creates response message
+   - Sets same message ID as request
+   - Sets `isRequest = false`
+   - Calls `queue.enqueueMessage(response)`
+7. **MessageQueue** enqueues response (goes to priority queue)
+8. **MessageDispatcher** processes response:
+   - Detects `isRequest() == false`
+   - Finds matching message ID in pending requests
+   - Stores response in pending responses map
+   - Signals the QWaitCondition
+9. **Request Module's thread UNBLOCKS**:
+   - Retrieves response from pending responses map
+   - `sendRequestAndWait()` returns true
+   - Module continues execution with response
+10. **Cleanup**: Message ID removed from pending requests/responses maps
+
+**Timeout Behavior**:
+- If response doesn't arrive within timeout milliseconds
+- Thread wakes up automatically (QWaitCondition timeout)
+- `sendRequestAndWait()` returns false
+- Requesting module should handle timeout gracefully
+
+#### Response Message Requirements
+
+For a response to be delivered to the requester:
+
+1. **Must have same Message ID** as the request
+   ```cpp
+   response->setMessageId(request->getMessageId());
+   ```
+
+2. **Must have isRequest = false**
+   ```cpp
+   auto response = std::make_shared<AuthMessage>(
+       "HandlerModule",
+       data1, data2,
+       false  // isRequest = false
+   );
+   ```
+
+3. **Handler module enqueues response**
+   ```cpp
+   Banking::MessageQueue::instance().enqueueMessage(response);
+   ```
+
+4. **Dispatcher automatically detects and routes to waiter**
+   - No manual routing needed
+   - QWaitCondition signals automatically
+   - Response returned to waiting module
 
 ---
 
@@ -1210,38 +1341,43 @@ Message Arrival Order:           Queue Processing Order:
 ### Complete Request-Reply Flow
 
 ```
-Login Module           MessageQueue           BankingSocket             Audit Logger
-    │                      │                        │                         │
-    │ 1. Create AuthMsg    │                        │                         │
-    ├─ set credentials     │                        │                         │
-    │                      │                        │                         │
-    │ 2. sendRequestAndWait│                        │                         │
-    ├─────────────────────►│                        │                         │
-    │ [BLOCKED - waits]    │                        │                         │
-    │                      │                        │                         │
-    │                      │ 3. Generate unique ID  │                         │
-    │                      │ 4. Add to priority queue                         │
-    │                      │ 5. Signal: messageEnqueued                       │
-    │                      │ 6. Dispatch to handler │                         │
-    │                      ├───────────────────────►│                         │
-    │                      │                    [process auth]                │
-    │                      │                        │ 7. logMessage()         │
-    │                      │                        ├───────────────────────►│
-    │                      │                        │   [Log: AUTH REQUEST]   │
-    │                      │                        │                         │
-    │                      │                    [verify credentials]          │
-    │                      │                        │ 8. Create AuthMsg(RESP) │
-    │                      │                        │ 9. Set authenticated=true
-    │                      │                        │ 10. enqueueMessage(resp)
-    │                      │◄───────────────────────┤                         │
-    │                      │ 11. Match by message ID │                         │
-    │                      │ 12. Signal wait condition                        │
-    │ 13. [UNBLOCKED]      │                        │                         │
-    │◄─────────────────────┤                        │                         │
-    │ 14. Receive response │                        │ 15. logMessage()        │
-    │ [continues]          │                        ├───────────────────────►│
-    │                      │                        │   [Log: AUTH RESPONSE]  │
-    │                      │                        │ [authenticated=true]    │
+RequestingModule       MessageQueue       MessageDispatcher      HandlerModule
+    │                      │                       │                   │
+    │ 1. Create request   │                       │                   │
+    │    message          │                       │                   │
+    │                      │                       │                   │
+    │ 2. Call:            │                       │                   │
+    │ sendRequestAndWait()│                       │                   │
+    ├─────────────────────►│                       │                   │
+    │ [BLOCKED - waits]   │                       │                   │
+    │                      │                       │                   │
+    │                      │ 3. Store message ID  │                   │
+    │                      │ 4. Register pending  │                   │
+    │                      │ 5. Enqueue to queue  │                   │
+    │                      │ 6. Emit signal       │                   │
+    │                      │                       │                   │
+    │                      │ 7. Process queue     │                   │
+    │                      │    (by priority)     │                   │
+    │                      ├──────────────────────►│                   │
+    │                      │    Route to handler  │ 8. Handle request│
+    │                      │                       ├──────────────────►│
+    │                      │                       │                [process]
+    │                      │                       │                   │
+    │                      │                       │ 9. Create response
+    │                      │                       │ 10. Same msg ID
+    │                      │                       │ 11. isRequest=false
+    │                      │                       │ 12. enqueueMessage()
+    │                      │                       │◄──────────────────┤
+    │                      │ 13. Response enqueued│                   │
+    │                      │ 14. Process response│                   │
+    │                      │ 15. Detect response│                   │
+    │                      │ 16. Match msg ID   │                   │
+    │                      │ 17. Signal wait    │                   │
+    │ 18. [UNBLOCKED]      │                       │                   │
+    │◄─────────────────────┤                       │                   │
+    │ 19. Get response    │                       │                   │
+    │ [Continue with      │                       │                   │
+    │  response data]     │                       │                   │
 ```
 
 ### Error Flow

@@ -1,5 +1,7 @@
 #include <gtest/gtest.h>
 #include <QSharedPointer>
+#include <thread>
+#include <chrono>
 
 #include "MessageQueue.hpp"
 #include "IMessage.hpp"
@@ -8,8 +10,11 @@ using namespace Banking;
 
 class TestMessage : public IMessage {
 public:
-    TestMessage(MessageType type, Priority priority, const QString &messageId = QString())
-        : m_type(type), m_priority(priority), m_messageId(messageId.isEmpty() ? QString::number(m_nextId++) : messageId)
+    TestMessage(MessageType type, Priority priority, const QString &messageId = QString(), bool isRequest = false)
+        : m_type(type)
+        , m_priority(priority)
+        , m_messageId(messageId.isEmpty() ? QString::number(m_nextId++) : messageId)
+        , m_isRequest(isRequest)
     {
     }
 
@@ -17,7 +22,7 @@ public:
     QString getSourceModule() const override { return "Test"; }
     QString getTargetModule() const override { return "Test"; }
     Priority getPriority() const override { return m_priority; }
-    bool isRequest() const override { return false; }
+    bool isRequest() const override { return m_isRequest; }
     QString getMessageId() const override { return m_messageId; }
     bool validate() const override { return true; }
     bool requiresEncryption() const override { return false; }
@@ -31,6 +36,7 @@ private:
     MessageType m_type;
     Priority m_priority;
     QString m_messageId;
+    bool m_isRequest;
     static quint64 m_nextId;
 };
 
@@ -110,4 +116,23 @@ TEST_F(MessageQueueTests, EqualPriorityMaintainsOrder)
 
     EXPECT_TRUE(queue.dequeueMessage(msg, 0));
     EXPECT_EQ(msg->getMessageId().toStdString(), "MSG2");
+}
+
+TEST_F(MessageQueueTests, SendRequestAndWaitReturnsResponse)
+{
+    auto &queue = MessageQueue::instance();
+    QSharedPointer<IMessage> response;
+    QSharedPointer<IMessage> request(new TestMessage(MessageType::AUTH, IMessage::Priority::NORMAL, QString("REQ1"), true));
+
+    std::thread responder([&queue, request]() {
+        std::this_thread::sleep_for(std::chrono::milliseconds(50));
+        auto reply = QSharedPointer<IMessage>(new TestMessage(MessageType::AUTH, IMessage::Priority::NORMAL, request->getMessageId(), false));
+        queue.completePendingResponse(reply);
+    });
+
+    EXPECT_TRUE(queue.sendRequestAndWait(request, response, 1000));
+    EXPECT_TRUE(response);
+    EXPECT_EQ(response->getMessageId().toStdString(), "REQ1");
+
+    responder.join();
 }

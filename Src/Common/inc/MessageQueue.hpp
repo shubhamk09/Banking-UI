@@ -66,6 +66,15 @@ public:
                            int timeoutMs = 5000);
 
     /**
+     * @brief Complete a pending response when dequeued by dispatcher
+     *
+     * This is invoked by MessageDispatcher when a response message is
+     * dequeued, ensuring that the requester only unblocks after queue
+     * ordering is preserved.
+     */
+    bool completePendingResponse(QSharedPointer<IMessage> response);
+
+    /**
      * @brief Subscribe to messages of specific type
      *
      * Uses MessageType enum for dispatcher routing.
@@ -112,7 +121,7 @@ private:
 
     // For request-reply pattern: messageId -> response message
     QMap<QString, QSharedPointer<IMessage>> m_pendingResponses;
-    QMap<QString, QWaitCondition> m_waitConditions;
+    QMap<QString, QWaitCondition*> m_waitConditions;  // Pointers (not by value)
 
     // Subscriptions: MessageType enum -> list of (receiver, slot)
     // Using enum key instead of QString for O(1) dispatcher lookup

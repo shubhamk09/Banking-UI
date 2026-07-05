@@ -20,12 +20,12 @@ target_link_libraries(bankingcore_lib PUBLIC Qt6::Core Qt6::Network)
 add_library(messagequeue_lib STATIC
     # Header files (MUST be uncommented for MOC to process Q_OBJECT)
     inc/MessageQueue.hpp
+    inc/MessageDispatcher.hpp
     Interfaces/IMessage.hpp
     Messages/inc/AuthMessage.hpp
     Messages/inc/ErrorMessage.hpp
     Messages/inc/StatusMessage.hpp
     Messages/inc/TransactionMessage.hpp
-    # inc/MessageDispatcher.hpp
 
     # Implementation files - Message classes
     Messages/Src/AuthMessage.cpp
@@ -33,9 +33,9 @@ add_library(messagequeue_lib STATIC
     Messages/Src/StatusMessage.cpp
     Messages/Src/TransactionMessage.cpp
 
-    # MessageQueue implementation
+    # MessageQueue and Dispatcher implementation
     MessageQueue.cpp
-    # src/MessageDispatcher.cpp
+    src/MessageDispatcher.cpp
 )
 
 target_include_directories(messagequeue_lib PUBLIC

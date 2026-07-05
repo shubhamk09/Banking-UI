@@ -1,9 +1,25 @@
 #pragma once
 
 #include <QObject>
+#include <QMap>
+#include <QThread>
+#include <QList>
+#include <QPair>
+#include "MessageQueue.hpp"
+#include "IMessage.hpp"
 
-namespace Banking
-{
+namespace Banking {
+
+class IModule;
+
+/**
+ * @class MessageDispatcher
+ * @brief Routes messages from queue to appropriate module handlers
+ *
+ * Processes queued messages and dispatches them to registered handlers
+ * based on message type. Handles both fire-and-forget and request-reply
+ * patterns with priority ordering maintained.
+ */
 class MessageDispatcher : public QObject {
     Q_OBJECT
 
@@ -11,8 +27,14 @@ public:
     /**
      * @brief Constructor
      * @param queue Reference to MessageQueue for subscribing
+     * @param parent Optional parent QObject
      */
-    explicit MessageDispatcher(MessageQueue &queue);
+    explicit MessageDispatcher(MessageQueue &queue, QObject *parent = nullptr);
+
+    /**
+     * @brief Destructor
+     */
+    ~MessageDispatcher();
 
     /**
      * @brief Register handler for specific message type
@@ -54,13 +76,22 @@ private slots:
     void onMessageAvailable(QSharedPointer<IMessage> message);
 
 private:
+    /**
+     * @brief Route message to all registered handlers for its type
+     */
+    void routeMessage(QSharedPointer<IMessage> message);
+
+    /** @brief Reference to MessageQueue singleton */
     MessageQueue &m_queue;
 
-    // Route: MessageType enum (as quint8) -> list of handler slots
-    // Using enum instead of QString for O(1) dispatcher performance
+    /** @brief Route: MessageType enum (as quint8) -> list of handler slots */
     QMap<quint8, QList<QPair<QObject*, const char*>>> m_handlers;
 
+    /** @brief Worker thread for message processing */
     QThread *m_dispatcherThread;
+
+    /** @brief Flag indicating if dispatcher is running */
     bool m_running;
 };
-}
+
+} // namespace Banking

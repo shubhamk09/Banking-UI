@@ -1,5 +1,6 @@
 #include <QMutexLocker>
 #include <QMetaType>
+#include <QDebug>
 
 #include "inc/MessageQueue.hpp"
 
@@ -25,11 +26,11 @@ void MessageQueue::enqueueMessage(QSharedPointer<IMessage> message)
     auto insertPosition = std::upper_bound(
         m_priorityQueue.begin(),
         m_priorityQueue.end(),
-        message,
-        [](const QSharedPointer<IMessage> &newMessage,
+        message->getPriority(),
+        [](IMessage::Priority priority,
            const QSharedPointer<IMessage> &listMessageItem)
         {
-            return newMessage->getPriority() > listMessageItem->getPriority();
+            return priority > listMessageItem->getPriority();
         }
     );
 
@@ -61,8 +62,86 @@ bool MessageQueue::dequeueMessage(QSharedPointer<IMessage> &message, int maxWait
 
 bool MessageQueue::sendRequestAndWait(QSharedPointer<IMessage> request, QSharedPointer<IMessage> &response, int timeoutMs)
 {
-    // To Do
+    // Step 1: Validate request
+    if (!request || !request->isRequest()) {
+        qWarning() << "Invalid request message";
+        return false;
+    }
+
+    QString messageId = request->getMessageId();
+
+    // Step 2: Register this request as pending
+    {
+        QMutexLocker locker(&m_mutex);
+
+        if (m_waitConditions.contains(messageId)) {
+            qWarning() << "Duplicate request message ID:" << messageId;
+            return false;
+        }
+
+        QWaitCondition* waitCondition = new QWaitCondition();
+        m_waitConditions[messageId] = waitCondition;
+        m_pendingResponses[messageId] = nullptr;  // Placeholder
+    }
+
+    // Step 3: Enqueue the request (dispatcher will route it)
+    enqueueMessage(request);
+
+    // Step 4: BLOCK and wait for response
+    bool responseReceived = false;
+    {
+        QMutexLocker locker(&m_mutex);
+
+        while (m_waitConditions.contains(messageId) &&
+               !m_pendingResponses[messageId]) {
+            if (!m_waitConditions[messageId]->wait(&m_mutex, timeoutMs)) {
+                break;
+            }
+        }
+
+        if (m_pendingResponses.contains(messageId) && m_pendingResponses[messageId]) {
+            response = m_pendingResponses[messageId];
+            responseReceived = true;
+        }
+    }
+
+    // Step 5: Cleanup
+    {
+        QMutexLocker locker(&m_mutex);
+
+        m_pendingResponses.remove(messageId);
+        if (m_waitConditions.contains(messageId)) {
+            delete m_waitConditions[messageId];
+            m_waitConditions.remove(messageId);
+        }
+    }
+
+    if (responseReceived) {
+        qDebug() << "Response received for message ID:" << messageId;
+        return true;
+    }
+
+    qWarning() << "No response received for message ID:" << messageId
+              << "Timeout:" << timeoutMs << "ms";
     return false;
+}
+
+bool MessageQueue::completePendingResponse(QSharedPointer<IMessage> response)
+{
+    if (!response || response->isRequest()) {
+        return false;
+    }
+
+    QString messageId = response->getMessageId();
+    QMutexLocker locker(&m_mutex);
+
+    if (!m_waitConditions.contains(messageId)) {
+        return false;
+    }
+
+    m_pendingResponses[messageId] = response;
+    m_waitConditions[messageId]->wakeAll();
+    return true;
 }
 
 void MessageQueue::subscribe(MessageType messageType, QObject *receiver, const char *slotName)

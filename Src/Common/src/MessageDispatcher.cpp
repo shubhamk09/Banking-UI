@@ -133,11 +133,13 @@ void MessageDispatcher::onMessageAvailable() {
 void MessageDispatcher::routeMessage(QSharedPointer<IMessage> message) {
     if (!message) {
         qWarning() << "Null message received";
+        emit m_queue.messageError(message, "Null message");
         return;
     }
 
     if (!message->isRequest() && m_queue.completePendingResponse(message)) {
         qDebug() << "Response consumed for pending request:" << message->getMessageId();
+        emit m_queue.messageProcessed(message);
         return;
     }
 
@@ -148,11 +150,13 @@ void MessageDispatcher::routeMessage(QSharedPointer<IMessage> message) {
     // Find handlers for this message type
     if (!m_handlers.contains(typeKey)) {
         qDebug() << "No handlers registered for message type:" << static_cast<int>(messageType);
+        emit m_queue.messageError(message, "No handlers registered");
         return;
     }
 
     // Invoke all registered handlers for this message type
     const auto& handlers = m_handlers[typeKey];
+    bool anySuccess = false;
 
     for (const auto& [receiver, slotName] : handlers) {
         if (!receiver) {
@@ -172,7 +176,14 @@ void MessageDispatcher::routeMessage(QSharedPointer<IMessage> message) {
             qWarning() << "Failed to invoke handler slot:" << slotName;
         } else {
             qDebug() << "Message routed to handler for type:" << static_cast<int>(messageType);
+            anySuccess = true;
         }
+    }
+
+    if (anySuccess) {
+        emit m_queue.messageProcessed(message);
+    } else {
+        emit m_queue.messageError(message, "No successful handler invocation");
     }
 }
 

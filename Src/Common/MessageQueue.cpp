@@ -8,9 +8,23 @@ namespace Banking
 {
 
 MessageQueue::MessageQueue()
+    : m_processingScheduled(false),
+      m_processedCount(0),
+      m_failedCount(0),
+      m_maxQueueSize(0),
+      m_workerThread(nullptr)
 {
     // Register meta type for Qt signals/slots with smart pointers
     qRegisterMetaType<QSharedPointer<IMessage>>("QSharedPointer<Banking::IMessage>");
+
+    connect(this, &MessageQueue::messageProcessed,
+            this, &MessageQueue::onMessageProcessed);
+
+    connect(this, &MessageQueue::messageError,
+            this, &MessageQueue::onMessageError);
+
+    connect(this, &MessageQueue::allQueueItemProcessed,
+            this, &MessageQueue::onAllQueueItemProcessed);
 }
 
 MessageQueue &MessageQueue::instance()
@@ -21,31 +35,52 @@ MessageQueue &MessageQueue::instance()
 
 void MessageQueue::enqueueMessage(QSharedPointer<IMessage> message)
 {
-    QMutexLocker locker(&m_mutex);
+    bool dispatchSignal = false;
+    bool emitErrorSignal = false;
+    QSharedPointer<IMessage> errorMessage;
 
-    auto insertPosition = std::upper_bound(
-        m_priorityQueue.begin(),
-        m_priorityQueue.end(),
-        message->getPriority(),
-        [](IMessage::Priority priority,
-           const QSharedPointer<IMessage> &listMessageItem)
-        {
-            return priority > listMessageItem->getPriority();
+    {
+        QMutexLocker locker(&m_mutex);
+
+        if (m_maxQueueSize > 0 && m_priorityQueue.size() >= m_maxQueueSize) {
+            qWarning() << "MessageQueue is full. Dropping message with ID:" << message->getMessageId();
+            emitErrorSignal = true;
+            errorMessage = message;
+        } else {
+            auto insertPosition = std::upper_bound(
+                m_priorityQueue.begin(),
+                m_priorityQueue.end(),
+                message->getPriority(),
+                [](IMessage::Priority priority,
+                   const QSharedPointer<IMessage> &listMessageItem)
+                {
+                    return priority > listMessageItem->getPriority();
+                }
+            );
+
+            if (insertPosition == m_priorityQueue.end())
+            {
+                m_priorityQueue.append(message);
+            }
+            else
+            {
+                m_priorityQueue.insert(insertPosition, message);
+            }
+
+            if(!m_processingScheduled)
+            {
+                m_processingScheduled = true;
+                dispatchSignal = true;
+            }
         }
-    );
-
-    if (insertPosition == m_priorityQueue.end())
-    {
-        m_priorityQueue.append(message);
-    }
-    else
-    {
-        m_priorityQueue.insert(insertPosition, message);
     }
 
-    if(!m_processingScheduled)
-    {
-        m_processingScheduled = true;
+    if (emitErrorSignal) {
+        emit messageError(errorMessage, "Queue full");
+        return;
+    }
+
+    if (dispatchSignal) {
         emit messageAvailable();
     }
 }
@@ -173,14 +208,29 @@ int MessageQueue::getFailedMessageCount() const
 
 void MessageQueue::setMaxQueueSize(int size)
 {  
-    //Need to see if we need to use mutex here
-    m_maxQueueSize = size;
+    QMutexLocker locker(&m_mutex);
+    m_maxQueueSize = qMax(0, size);
 }
 
 void MessageQueue::processQueuedMessages()
 {
     QMutexLocker locker(&m_mutex);
     Q_UNUSED(locker);
+}
+
+void MessageQueue::onMessageProcessed(QSharedPointer<IMessage> message)
+{
+    Q_UNUSED(message);
+    QMutexLocker locker(&m_mutex);
+    ++m_processedCount;
+}
+
+void MessageQueue::onMessageError(QSharedPointer<IMessage> message, const QString &error)
+{
+    Q_UNUSED(message);
+    Q_UNUSED(error);
+    QMutexLocker locker(&m_mutex);
+    ++m_failedCount;
 }
 
 void MessageQueue::onAllQueueItemProcessed()

@@ -104,6 +104,8 @@ signals:
 
 private slots:
     void processQueuedMessages();  /// Worker thread processes messages
+    void onMessageProcessed(QSharedPointer<IMessage> message);
+    void onMessageError(QSharedPointer<IMessage> message, const QString &error);
     void onAllQueueItemProcessed(); /// All messages are processed, new signals can be allowed
 
 private:

@@ -11,8 +11,9 @@
 #include "inc/MessageQueue.hpp"
 
 namespace Banking{
-    constexpr int initModule = 1;
-    constexpr int doNotInitModule = 0;
+    constexpr int kInitModule = 1;
+    constexpr int kDoNotInitModule = 0;
+    constexpr int kMaxQueueSixe = 250;
 
 StartupManager::StartupManager() : m_moduleFactory(ModuleFactory::instance()),
     m_moduleNameMap{
@@ -68,7 +69,7 @@ void StartupManager::loadConfig()
                     QString moduleName = it.key();
                     int moduleValue = it.value().toInt();
                     std::cout<<"Module: "<< moduleName.toStdString() << " is " << moduleValue << std::endl;
-                    if (moduleValue == initModule)
+                    if (moduleValue == kInitModule)
                     {
                         QString initializerName = getInitializerName(moduleName);
                         std::unique_ptr<IModule> module = m_moduleFactory.createInstance(initializerName);
@@ -93,6 +94,7 @@ void StartupManager::initCore()
     // MessageQueue singleton initializes automatically on first use
     // No explicit initialization needed
     MessageQueue &messageQueue = MessageQueue::instance();
+    messageQueue.setMaxQueueSize(kMaxQueueSixe);
 
     // Initialize MessageDispatcher
     m_messageDispatcher.reset(new Banking::MessageDispatcher(messageQueue)) ;

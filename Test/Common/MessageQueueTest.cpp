@@ -118,6 +118,22 @@ TEST_F(MessageQueueTests, EqualPriorityMaintainsOrder)
     EXPECT_EQ(msg->getMessageId().toStdString(), "MSG2");
 }
 
+TEST_F(MessageQueueTests, MaxQueueSizeDropsExcessMessages)
+{
+    auto &queue = MessageQueue::instance();
+    QSharedPointer<IMessage> msg;
+    while (queue.dequeueMessage(msg, 0)) { }
+
+    queue.setMaxQueueSize(2);
+
+    queue.enqueueMessage(QSharedPointer<IMessage>(new TestMessage(MessageType::STATUS, IMessage::Priority::NORMAL, QString("MSG1"))));
+    queue.enqueueMessage(QSharedPointer<IMessage>(new TestMessage(MessageType::STATUS, IMessage::Priority::NORMAL, QString("MSG2"))));
+    queue.enqueueMessage(QSharedPointer<IMessage>(new TestMessage(MessageType::STATUS, IMessage::Priority::NORMAL, QString("MSG3"))));
+
+    EXPECT_EQ(queue.getQueueSize(), 2);
+    EXPECT_EQ(queue.getFailedMessageCount(), 1);
+}
+
 TEST_F(MessageQueueTests, SendRequestAndWaitReturnsResponse)
 {
     auto &queue = MessageQueue::instance();

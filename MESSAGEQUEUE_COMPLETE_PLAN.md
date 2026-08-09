@@ -1343,23 +1343,23 @@ For a response to be delivered to the requester:
 ```
 RequestingModule       MessageQueue       MessageDispatcher      HandlerModule
     │                      │                       │                   │
-    │ 1. Create request   │                       │                   │
-    │    message          │                       │                   │
+    │ 1. Create request    │                       │                   │
+    │    message           │                       │                   │
     │                      │                       │                   │
-    │ 2. Call:            │                       │                   │
-    │ sendRequestAndWait()│                       │                   │
+    │ 2. Call:             │                       │                   │
+    │ sendRequestAndWait() │                       │                   │
     ├─────────────────────►│                       │                   │
-    │ [BLOCKED - waits]   │                       │                   │
+    │ [BLOCKED - waits]    │                       │                   │
     │                      │                       │                   │
-    │                      │ 3. Store message ID  │                   │
-    │                      │ 4. Register pending  │                   │
-    │                      │ 5. Enqueue to queue  │                   │
-    │                      │ 6. Emit signal       │                   │
+    │                      │ 3. Store message ID   │                   │
+    │                      │ 4. Register pending   │                   │
+    │                      │ 5. Enqueue to queue   │                   │
+    │                      │ 6. Emit signal        │                   │
     │                      │                       │                   │
-    │                      │ 7. Process queue     │                   │
-    │                      │    (by priority)     │                   │
+    │                      │ 7. Process queue      │                   │
+    │                      │    (by priority)      │                   │
     │                      ├──────────────────────►│                   │
-    │                      │    Route to handler  │ 8. Handle request│
+    │                      │    Route to handler   │ 8. Handle request │
     │                      │                       ├──────────────────►│
     │                      │                       │                [process]
     │                      │                       │                   │
@@ -1368,16 +1368,16 @@ RequestingModule       MessageQueue       MessageDispatcher      HandlerModule
     │                      │                       │ 11. isRequest=false
     │                      │                       │ 12. enqueueMessage()
     │                      │                       │◄──────────────────┤
-    │                      │ 13. Response enqueued│                   │
-    │                      │ 14. Process response│                   │
-    │                      │ 15. Detect response│                   │
-    │                      │ 16. Match msg ID   │                   │
-    │                      │ 17. Signal wait    │                   │
+    │                      │ 13. Response enqueued │                   │
+    │                      │ 14. Process response  │                   │
+    │                      │ 15. Detect response   │                   │
+    │                      │ 16. Match msg ID      │                   │
+    │                      │ 17. Signal wait       │                   │
     │ 18. [UNBLOCKED]      │                       │                   │
     │◄─────────────────────┤                       │                   │
-    │ 19. Get response    │                       │                   │
-    │ [Continue with      │                       │                   │
-    │  response data]     │                       │                   │
+    │ 19. Get response     │                       │                   │
+    │ [Continue with       │                       │                   │
+    │  response data]      │                       │                   │
 ```
 
 ### Error Flow

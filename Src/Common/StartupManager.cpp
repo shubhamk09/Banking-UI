@@ -93,6 +93,10 @@ void StartupManager::initCore()
     // MessageQueue singleton initializes automatically on first use
     // No explicit initialization needed
     MessageQueue &messageQueue = MessageQueue::instance();
+
+    // Initialize MessageDispatcher
+    m_messageDispatcher.reset(new Banking::MessageDispatcher(messageQueue)) ;
+    m_messageDispatcher->start();
      
 
 }

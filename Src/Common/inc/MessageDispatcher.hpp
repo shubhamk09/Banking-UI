@@ -68,12 +68,12 @@ public:
 
 private slots:
     /**
-     * @brief Process next message from queue
+     * @brief Process all the message from queue
      *
      * Called internally by worker thread dispatcher loop.
      * Uses enum comparison (O(1)) to route based on message type.
      */
-    void onMessageAvailable(QSharedPointer<IMessage> message);
+    void onMessageAvailable();
 
 private:
     /**

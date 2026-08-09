@@ -12,6 +12,7 @@
  #include <QMutex>
  #include <QWaitCondition>
  #include <QThread>
+ #include <atomic>
 
  #include "../Interfaces/IMessage.hpp"
 
@@ -96,12 +97,14 @@ public:
     //oid setAuditLogging(bool enabled, const QString &logPath);
 
 signals:
-    void messageEnqueued(QSharedPointer<IMessage> message);
+    void messageAvailable();
     void messageProcessed(QSharedPointer<IMessage> message);
     void messageError(QSharedPointer<IMessage> message, const QString &error);
+    void allQueueItemProcessed();
 
 private slots:
-    void processQueuedMessages();  ///< Worker thread processes messages
+    void processQueuedMessages();  /// Worker thread processes messages
+    void onAllQueueItemProcessed(); /// All messages are processed, new signals can be allowed
 
 private:
     /**
@@ -115,6 +118,7 @@ private:
     MessageQueue& operator=(const MessageQueue&) = delete;
 
     mutable QMutex m_mutex;
+    std::atomic<bool> m_processingScheduled = false;
 
     // Priority queue: higher priority = lower index
     QVector<QSharedPointer<IMessage>> m_priorityQueue;

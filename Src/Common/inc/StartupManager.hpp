@@ -9,6 +9,7 @@
 #include <QList>
 #include <iostream>
 #include "../Interfaces/IModule.hpp"
+#include "MessageDispatcher.hpp"
 
 namespace Banking {
 
@@ -109,6 +110,10 @@ private:
 
     /** @brief Number of successfully loaded modules. */
     u_int8_t m_totalLoadedModules;
+
+    /** @brief Message dispatcher for handling the message in messageQueue */
+    QScopedPointer<Banking::MessageDispatcher> m_messageDispatcher;
+
 };
 
 } // namespace Banking

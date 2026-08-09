@@ -43,7 +43,11 @@ void MessageQueue::enqueueMessage(QSharedPointer<IMessage> message)
         m_priorityQueue.insert(insertPosition, message);
     }
 
-    emit messageEnqueued(message);
+    if(!m_processingScheduled)
+    {
+        m_processingScheduled = true;
+        emit messageAvailable();
+    }
 }
 
 bool MessageQueue::dequeueMessage(QSharedPointer<IMessage> &message, int maxWaitMs)
@@ -177,6 +181,11 @@ void MessageQueue::processQueuedMessages()
 {
     QMutexLocker locker(&m_mutex);
     Q_UNUSED(locker);
+}
+
+void MessageQueue::onAllQueueItemProcessed()
+{
+    m_processingScheduled = false;
 }
 
 } // namespace Banking

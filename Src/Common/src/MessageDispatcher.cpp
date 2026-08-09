@@ -7,7 +7,6 @@
 #include "IModule.hpp"
 #include <QMetaObject>
 #include <QDebug>
-#include <QTimer>
 
 namespace Banking {
 
@@ -20,8 +19,8 @@ MessageDispatcher::MessageDispatcher(MessageQueue &queue, QObject *parent)
       m_dispatcherThread(nullptr),
       m_running(false) {
 
-    // Connect to queue's messageEnqueued signal
-    connect(&m_queue, &MessageQueue::messageEnqueued, this,
+    // Connect to queue's messageAvailable signal
+    connect(&m_queue, &MessageQueue::messageAvailable, this,
             &MessageDispatcher::onMessageAvailable, Qt::QueuedConnection);
 }
 
@@ -83,22 +82,9 @@ void MessageDispatcher::start() {
     m_dispatcherThread = new QThread(this);
     moveToThread(m_dispatcherThread);
 
-    // Start processing when thread starts
+    // Thread is running so queued signals can be delivered.
     connect(m_dispatcherThread, &QThread::started, this, [this]() {
         qDebug() << "MessageDispatcher started on worker thread";
-
-        // Use a timer to periodically process queue
-        QTimer *processTimer = new QTimer(this);
-        connect(processTimer, &QTimer::timeout, this, [this]() {
-            QSharedPointer<IMessage> message;
-
-            // Process all available messages
-            while (m_queue.dequeueMessage(message)) {
-                routeMessage(message);
-            }
-        });
-
-        processTimer->start(10);  // Process every 10ms
     });
 
     // Cleanup on thread finished
@@ -131,10 +117,14 @@ void MessageDispatcher::stop() {
 /**
  * @brief Handle new message from queue
  */
-void MessageDispatcher::onMessageAvailable(QSharedPointer<IMessage> message) {
-    // This is called when message is enqueued
-    // Actual routing happens in the worker thread timer
-    Q_UNUSED(message);
+void MessageDispatcher::onMessageAvailable() {
+    // This is called when message is enqueued.
+    // The dispatcher thread is already running, so dequeue and route here.
+    QSharedPointer<IMessage> message;
+    while (m_queue.dequeueMessage(message)) {
+        routeMessage(message);
+    }
+    emit m_queue.allQueueItemProcessed();
 }
 
 /**
